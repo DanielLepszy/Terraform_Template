@@ -1,0 +1,37 @@
+def configId = "${env.BUILD_TAG}".toLowerCase().replace("jenkins-","")
+
+pipeline{
+    agent {
+        node (;abe; 'cm')
+    }
+    options {
+        ansiColor('xterm'
+        timeout(time: 1, unit: 'HOURS'))
+    }
+    environment {
+        GOOGLE_APPLICATION_CREDENTIALS = "$env.WORKSPACE/secret-sa.json"
+        GCP_PROJECT = "${env.GCP_PROJECT}"
+        ENVIRONMENT_NAME = "${env.ENVIRONMENT_NAME}"
+        REGION = "${env.REGION}"
+        PROJECT_NAME = "${env.PROJECT_NAME}"
+        TG_MODULE = "${env.TG_MODULE}"
+        TG_ACTION = "${env.TG_ACTION}"
+    }
+
+  stages{
+    stage('Prepare GCP Configs'){
+        steps{
+            withCredentials([file(credentialsId: "", variable: '')]){
+            // ...
+            }   
+        }
+    }
+    stage('Run Terragrunt Init'){
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/$env.TG_MODULE"){
+                sh"terragrun $env.TG_ACTION --terragrunt-non-interactive"
+            }
+        }
+     }  
+    }
+}

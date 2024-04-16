@@ -1,0 +1,85 @@
+def configId = "${env.BUILD_TAG}".toLowerCase().replace("jenkins-","")
+
+pipeline{
+    agent {
+        node (;abe; 'cm')
+    }
+    options {
+        ansiColor('xterm'
+        timeout(time: 1, unit: 'HOURS'))
+    }
+    environment {
+        GOOGLE_APPLICATION_CREDENTIALS = "$env.WORKSPACE/secret-sa.json"
+        GCP_PROJECT = "${env.GCP_PROJECT}"
+        PROJECT_NAME = "${env.PROJECT_NAME}"
+    }
+    parameters{
+        TERRAFORM_SA = "TERRAFORM-DEPLOYER-SANDBOX"
+        JSON_TF_VARS = "${env.JSON_TF_VARS}" '{"":""}'
+        OPERATION = 'PLAN/APPLY...'
+    }
+
+  stages{
+    stage('Prepare GCP Configs'){
+        steps{
+            withCredentials([file(credentialsId: "", variable: '')]){
+            // gcloud configuration example
+            sh(returnStdout: true, script: "cp ${GCP_SA_KEY} ./secret-sa-json && chmod 700 ./secret-sa.json")
+            sh(returnStdout: true, script: "gcloud config configurations create ${BUILD_ID}")
+            sh(returnStdout: true, script: "gcloud auth activate-service-account --key-file \"./secret-sa.json\" --configuration ${BUILD_ID}")
+            sh(returnStdout: true, script: "gcloud config set core/project ${env.GCP_PROJECT} --configuration ${BUILD_ID}")
+            sh(returnStdout: true, script: "echo ${env.JSON_TF_VARS} > json_tf_vars.json")
+            
+            
+            }   
+        }
+    }
+    stage('Run Terragrunt Init'){
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/"){
+                sh(returnStdout: true, script: "terragrun init --terragrunt-log-level debug")
+            }
+        }
+     }  
+    stage('Run Terragrunt Plan'){
+        when{
+            environment ignorCase: true, name: 'OPERATION', value: 'PLAN'
+        }
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/"){
+                sh(returnStdout: true, script: "terragrunt run-all plan")
+            }
+        }
+     }
+       stage('Run Terragrunt Destroy Plan'){
+        when{
+            environment ignorCase: true, name: 'OPERATION', value: 'PLAN DESTROY'
+        }
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/"){
+                sh(returnStdout: true, script: "terragrunt run-all plan -destroy")
+            }
+        }
+     }
+       stage('Run Terragrunt Apply'){
+        when{
+            environment ignorCase: true, name: 'OPERATION', value: 'APPLY'
+        }
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/"){
+                sh(returnStdout: true, script: "terragrunt run-all apply --terragrunt-non-interactive")
+            }
+        }
+     }
+       stage('Run Terragrunt Destroy'){
+        when{
+            environment ignorCase: true, name: 'OPERATION', value: 'DESTRONY'
+        }
+        steps{
+            dir("$env.WORKSPACE/$env.GCP_PROJECT/$env.PROJECT_NAME/$env.REGION/"){
+                sh(returnStdout: true, script: "terragrunt run-all destrony --terragrunt-non-interactive")
+            }
+        }
+     }
+}
+}
